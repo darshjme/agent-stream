@@ -4,20 +4,15 @@
 
 # agent-stream
 
-**Streaming response handling for LLM agents. Zero external dependencies.**
+**Streaming response handling for LLM agents — chunk accumulation, SSE parsing, partial callbacks, stream interruption.**
 
-[![PyPI](https://img.shields.io/pypi/v/agent-stream?color=blue)](https://pypi.org/project/agent-stream/)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Zero deps](https://img.shields.io/badge/dependencies-zero-brightgreen)](pyproject.toml)
+[![PyPI version](https://img.shields.io/pypi/v/agent-stream?color=blue&style=flat-square)](https://pypi.org/project/agent-stream/) [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)](https://python.org) [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE) [![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=flat-square)](#)
 
 ---
 
 ## The Problem
 
-Production LLM agents fail silently. Without streaming response handling, you get undefined behaviour at scale — race conditions, lost state, cascading failures, and no way to debug what went wrong.
-
-`agent-stream` gives you a production-ready streaming response handling primitive with a clean API, tested edge cases, and zero configuration.
+Without streaming, the user waits for the entire response before seeing anything — perceived latency is total latency. Streaming reduces time-to-first-token and enables real-time pipelines that buffer-and-batch cannot match.
 
 ## Installation
 
@@ -25,88 +20,100 @@ Production LLM agents fail silently. Without streaming response handling, you ge
 pip install agent-stream
 ```
 
-Or from source:
-
-```bash
-git clone https://github.com/darshjme/agent-stream.git
-cd agent-stream
-pip install -e .
-```
-
 ## Quick Start
 
 ```python
-from agent_stream import *  # see API reference below
+from agent_stream import ChunkBuffer, StreamCollector, StreamProcessor
 
-# See examples/ directory for complete working examples
+# Initialise
+instance = ChunkBuffer(name="my_agent")
+
+# Use
+# see API reference below
+print(result)
 ```
 
 ## API Reference
 
-The main classes and functions are defined in `agent_stream/__init__.py`.
+### `ChunkBuffer`
 
-Key exports: `SSE parser · chunk accumulation · StreamProcessor · filter/map`
+```python
+class ChunkBuffer:
+    """A fixed-capacity text buffer for streaming chunks.
+    def __init__(self, max_size: int = 10_000) -> None:
+    def write(self, chunk: str) -> None:
+        """Append *chunk* to the buffer.
+    def read(self, n: int = -1) -> str:
+        """Consume and return up to *n* characters (or all if n == -1)."""
+```
 
-All classes follow a consistent interface:
-- Instantiate with sensible defaults
-- Compose with other arsenal libraries
-- Zero external dependencies required
+### `StreamCollector`
 
-See the source code and `tests/` directory for verified usage examples.
+```python
+class StreamCollector:
+    """Accumulates text chunks from a streaming source.
+    def __init__(
+    def feed(self, chunk: str | bytes) -> None:
+        """Process one chunk, appending it to the internal buffer.
+    def collect(self, stream: Iterable[str | bytes]) -> str:
+        """Drain *stream*, accumulate all chunks, return full text.
+    def reset(self) -> None:
+        """Clear accumulated state so the collector can be reused."""
+```
+
+### `StreamProcessor`
+
+```python
+class StreamProcessor:
+    """Lazy, fluent stream processing pipeline.
+    def __init__(self, stream: Iterable) -> None:
+    def filter(self, predicate: Callable[[object], bool]) -> "StreamProcessor":
+        """Keep only chunks for which *predicate* returns truthy."""
+    def map(self, transform: Callable[[object], object]) -> "StreamProcessor":
+        """Apply *transform* to every chunk."""
+    def take(self, n: int) -> "StreamProcessor":
+        """Keep only the first *n* chunks."""
+```
+
 
 ## How It Works
 
+### Flow
+
 ```mermaid
 flowchart LR
-    A[Agent Task] --> B[agent-stream]
-    B --> C{Decision}
-    C -->|success| D[✅ Result]
-    C -->|failure| E[⚠️ Handle]
-    E --> B
-
-    style B fill:#161b22,stroke:#1f6feb,stroke-width:2,color:#1f6feb
-    style D fill:#1a3320,stroke:#238636,color:#3fb950
-    style E fill:#3d1a1a,stroke:#f85149,color:#f85149
+    A[User Code] -->|create| B[ChunkBuffer]
+    B -->|configure| C[StreamCollector]
+    C -->|execute| D{Success?}
+    D -->|yes| E[Return Result]
+    D -->|no| F[Error Handler]
+    F --> G[Fallback / Retry]
+    G --> C
 ```
+
+### Sequence
 
 ```mermaid
 sequenceDiagram
-    participant Agent
-    participant AgentStream as agent-stream
-    participant Output
+    participant App
+    participant ChunkBuffer
+    participant StreamCollector
 
-    Agent->>AgentStream: initialize()
-    AgentStream-->>Agent: ready
-
-    loop Agent Run
-        Agent->>AgentStream: process(input)
-        AgentStream-->>Agent: result
-    end
-
-    Agent->>Output: deliver(result)
+    App->>+ChunkBuffer: initialise()
+    ChunkBuffer->>+StreamCollector: configure()
+    StreamCollector-->>-ChunkBuffer: ready
+    App->>+ChunkBuffer: run(context)
+    ChunkBuffer->>+StreamCollector: execute(context)
+    StreamCollector-->>-ChunkBuffer: result
+    ChunkBuffer-->>-App: WorkflowResult
 ```
 
 ## Philosophy
 
-The Saraswati river flowed continuously, nourishing everything it touched. agent-stream is that continuity.
+> *Sarasvatī* — the river goddess — flows without accumulation; a true stream processes and releases.
 
 ---
 
-## Part of the Arsenal
-
-`agent-stream` is one of six production libraries for LLM agents:
-
-| Library | Purpose |
-|---------|---------|
-| [herald](https://github.com/darshjme/herald) | Semantic task routing |
-| [engram](https://github.com/darshjme/engram) | Agent memory |
-| [sentinel](https://github.com/darshjme/sentinel) | ReAct loop guards |
-| [verdict](https://github.com/darshjme/verdict) | Agent evaluation |
-| [agent-guardrails](https://github.com/darshjme/agent-guardrails) | Output validation |
-| [agent-observability](https://github.com/darshjme/agent-observability) | Tracing & metrics |
-
-→ [arsenal](https://github.com/darshjme/arsenal) — the complete stack
-
----
+*Part of the [arsenal](https://github.com/darshjme/arsenal) — production stack for LLM agents.*
 
 *Built by [Darshankumar Joshi](https://github.com/darshjme), Gujarat, India.*
