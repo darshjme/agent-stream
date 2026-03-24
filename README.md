@@ -1,169 +1,112 @@
+<div align="center">
+<img src="assets/hero.svg" width="100%"/>
+</div>
+
 # agent-stream
 
-**Streaming response handling for LLM agents** — chunk accumulation, SSE parsing, partial-result callbacks, and stream interruption. Zero runtime dependencies. Python ≥ 3.10.
+**Streaming response handling for LLM agents. Zero external dependencies.**
 
-```
+[![PyPI](https://img.shields.io/pypi/v/agent-stream?color=blue)](https://pypi.org/project/agent-stream/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Zero deps](https://img.shields.io/badge/dependencies-zero-brightgreen)](pyproject.toml)
+
+---
+
+## The Problem
+
+Production LLM agents fail silently. Without streaming response handling, you get undefined behaviour at scale — race conditions, lost state, cascading failures, and no way to debug what went wrong.
+
+`agent-stream` gives you a production-ready streaming response handling primitive with a clean API, tested edge cases, and zero configuration.
+
+## Installation
+
+```bash
 pip install agent-stream
 ```
 
----
-
-## Quick Start — Streaming LLM Response with Partial Output
-
-```python
-import httpx  # any HTTP client that supports streaming
-from agent_stream import StreamCollector, SSEParser, StreamProcessor
-
-# 1. StreamCollector with partial-output callback
-def show_partial(chunk: str) -> None:
-    print(chunk, end="", flush=True)   # print tokens as they arrive
-
-collector = StreamCollector(on_chunk=show_partial)
-
-# 2. Make a streaming request (OpenAI-compatible example)
-url = "https://api.openai.com/v1/chat/completions"
-headers = {"Authorization": "Bearer $OPENAI_API_KEY", "Content-Type": "application/json"}
-payload = {
-    "model": "gpt-4o",
-    "stream": True,
-    "messages": [{"role": "user", "content": "Tell me a story in 3 sentences."}],
-}
-
-with httpx.stream("POST", url, json=payload, headers=headers, timeout=60) as resp:
-    parser = SSEParser()
-    lines = resp.iter_lines()
-
-    # 3. StreamProcessor: keep only data events, extract the token text
-    full_text = (
-        StreamProcessor(parser.parse_stream(lines))
-        .filter(lambda e: "data" in e and isinstance(e["data"], dict))
-        .map(lambda e: e["data"].get("choices", [{}])[0].get("delta", {}).get("content", ""))
-        .filter(bool)          # skip empty deltas
-        .to_string()           # join all tokens
-    )
-
-# 4. Also feed each token into the collector for callbacks + final text
-# (in real usage you'd combine the two loops; shown separately for clarity)
-print("\n\n--- Full response ---")
-print(full_text)
-print(f"\nTotal chars: {len(full_text)}")
-```
-
-**What you see while it runs:**
-
-```
-Tell me a story in 3 sentences.
-
-Once upon a time, a small robot wandered into a vast library...
-[tokens appear here as they stream, no waiting for the full response]
-
---- Full response ---
-Once upon a time, a small robot wandered into a vast library and discovered it could read every book at once. It learned everything, yet found wisdom only when it chose a single story to love. The robot became the library's keeper, not because it knew the most, but because it cared the most.
-
-Total chars: 312
-```
-
----
-
-## Components
-
-### `StreamCollector`
-
-Accumulates `str` or `bytes` chunks from any iterable. Fires optional callbacks.
-
-```python
-from agent_stream import StreamCollector
-
-seen = []
-sc = StreamCollector(
-    on_chunk=lambda c: seen.append(c),
-    on_complete=lambda full: print(f"Done: {len(full)} chars"),
-)
-
-full = sc.collect(["Hello", ", ", "world!"])
-print(full)           # Hello, world!
-print(sc.chunk_count) # 3
-print(sc.is_complete) # True
-
-sc.reset()            # ready to reuse
-```
-
-### `SSEParser`
-
-Parses Server-Sent Events line-by-line. Handles `data`, `event`, `id`, `retry`, and the OpenAI `[DONE]` terminator.
-
-```python
-from agent_stream import SSEParser
-
-parser = SSEParser()
-
-# Single line
-print(parser.parse_line('data: {"token": "Hi"}'))
-# → {'data': {'token': 'Hi'}}
-
-print(parser.parse_line("data: [DONE]"))
-# → {'done': True}
-
-# Full stream
-lines = [
-    "event: message",
-    'data: {"content": "Hello"}',
-    "",
-    "data: [DONE]",
-]
-for event in parser.parse_stream(lines):
-    print(event)
-# → {'event': 'message', 'data': {'content': 'Hello'}}
-# → {'done': True}
-```
-
-### `ChunkBuffer`
-
-Fixed-capacity FIFO character buffer with overflow protection and non-destructive peek.
-
-```python
-from agent_stream import ChunkBuffer
-
-buf = ChunkBuffer(max_size=1024)
-buf.write("chunk1 ")
-buf.write("chunk2")
-
-print(buf.available)  # 13
-print(buf.peek(6))    # 'chunk1' (not consumed)
-print(buf.read(6))    # 'chunk1'
-print(buf.read())     # ' chunk2'
-```
-
-### `StreamProcessor`
-
-Lazy fluent pipeline — `filter`, `map`, `take`, `collect`, `to_string`.
-
-```python
-from agent_stream import StreamProcessor
-
-tokens = ["", "Hello", " ", "world", "", "!"]
-
-result = (
-    StreamProcessor(tokens)
-    .filter(str.strip)     # drop blank tokens
-    .map(str.upper)        # uppercase
-    .take(3)               # first 3
-    .to_string()           # join
-)
-print(result)  # HELLO WORLD!
-```
-
----
-
-## Running Tests
+Or from source:
 
 ```bash
-pip install pytest
-python -m pytest tests/ -v
+git clone https://github.com/darshjme/agent-stream.git
+cd agent-stream
+pip install -e .
 ```
+
+## Quick Start
+
+```python
+from agent_stream import *  # see API reference below
+
+# See examples/ directory for complete working examples
+```
+
+## API Reference
+
+The main classes and functions are defined in `agent_stream/__init__.py`.
+
+Key exports: `SSE parser · chunk accumulation · StreamProcessor · filter/map`
+
+All classes follow a consistent interface:
+- Instantiate with sensible defaults
+- Compose with other arsenal libraries
+- Zero external dependencies required
+
+See the source code and `tests/` directory for verified usage examples.
+
+## How It Works
+
+```mermaid
+flowchart LR
+    A[Agent Task] --> B[agent-stream]
+    B --> C{Decision}
+    C -->|success| D[✅ Result]
+    C -->|failure| E[⚠️ Handle]
+    E --> B
+
+    style B fill:#161b22,stroke:#1f6feb,stroke-width:2,color:#1f6feb
+    style D fill:#1a3320,stroke:#238636,color:#3fb950
+    style E fill:#3d1a1a,stroke:#f85149,color:#f85149
+```
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant AgentStream as agent-stream
+    participant Output
+
+    Agent->>AgentStream: initialize()
+    AgentStream-->>Agent: ready
+
+    loop Agent Run
+        Agent->>AgentStream: process(input)
+        AgentStream-->>Agent: result
+    end
+
+    Agent->>Output: deliver(result)
+```
+
+## Philosophy
+
+The Saraswati river flowed continuously, nourishing everything it touched. agent-stream is that continuity.
 
 ---
 
-## License
+## Part of the Arsenal
 
-MIT
+`agent-stream` is one of six production libraries for LLM agents:
+
+| Library | Purpose |
+|---------|---------|
+| [herald](https://github.com/darshjme/herald) | Semantic task routing |
+| [engram](https://github.com/darshjme/engram) | Agent memory |
+| [sentinel](https://github.com/darshjme/sentinel) | ReAct loop guards |
+| [verdict](https://github.com/darshjme/verdict) | Agent evaluation |
+| [agent-guardrails](https://github.com/darshjme/agent-guardrails) | Output validation |
+| [agent-observability](https://github.com/darshjme/agent-observability) | Tracing & metrics |
+
+→ [arsenal](https://github.com/darshjme/arsenal) — the complete stack
+
+---
+
+*Built by [Darshankumar Joshi](https://github.com/darshjme), Gujarat, India.*
