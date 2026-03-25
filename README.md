@@ -1,10 +1,12 @@
 <div align="center">
 
-<img src="assets/agent-stream-hero.png" alt="agent-stream — Vedic Arsenal" width="100%" />
+<img src="assets/agent-stream-hero.png" alt="agent-stream — Vedic Arsenal by Darshankumar Joshi" width="100%" />
 
 # ⚡ agent-stream
 
-### *प्रवाह* — Pravah — the sacred stream of consciousness
+<h3><em>प्रवाह</em></h3>
+
+> *Pravah — the sacred stream of consciousness*
 
 **Streaming response handling for LLM agents — SSE parser, chunk accumulation, StreamProcessor with filter/map/take. Zero dependencies.**
 
@@ -39,6 +41,19 @@ Or clone directly:
 git clone https://github.com/darshjme/agent-stream.git
 cd agent-stream
 pip install -e .
+```
+
+## How It Works
+
+```mermaid
+flowchart LR
+    A[Input] --> B[agent-stream]
+    B --> C{Process}
+    C -- Success --> D[Output]
+    C -- Error --> E[Handle / Retry]
+    E --> B
+    style B fill:#6b21a8,color:#fff
+    note["Stream — Zero Dependencies"]
 ```
 
 ## Quick Start
@@ -90,7 +105,7 @@ MIT — use freely, build freely.
 
 <div align="center">
 
-**Built with ⚡ by [Darshankumar Joshi](https://github.com/darshjme)**
+**Built with ⚡ by [Darshankumar Joshi](https://github.com/darshjme)** · [@thedarshanjoshi](https://twitter.com/thedarshanjoshi)
 
 *"कर्मण्येवाधिकारस्ते मा फलेषु कदाचन"*
 *Your right is to action alone, never to the fruits thereof.*
