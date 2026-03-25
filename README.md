@@ -1,18 +1,32 @@
 <div align="center">
-<img src="assets/hero.svg" width="100%"/>
+
+<img src="assets/agent-stream-hero.png" alt="agent-stream — Vedic Arsenal" width="100%" />
+
+# ⚡ agent-stream
+
+### *प्रवाह* — Pravah — the sacred stream of consciousness
+
+**Streaming response handling for LLM agents — SSE parser, chunk accumulation, StreamProcessor with filter/map/take. Zero dependencies.**
+
+[![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python)](https://python.org)
+[![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero-brightgreen?style=flat-square)](https://github.com/darshjme/agent-stream)
+[![Tests](https://img.shields.io/badge/Tests-Passing-success?style=flat-square)](https://github.com/darshjme/agent-stream/actions)
+[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+[![Vedic Arsenal](https://img.shields.io/badge/Vedic%20Arsenal-100%20libs-purple?style=flat-square)](https://github.com/darshjme/arsenal)
+
+*Part of the [**Vedic Arsenal**](https://github.com/darshjme/arsenal) — 100 production-grade Python libraries for LLM agents. Zero dependencies. Battle-tested.*
+
 </div>
-
-# agent-stream
-
-**Streaming response handling for LLM agents — chunk accumulation, SSE parsing, partial callbacks, stream interruption.**
-
-[![PyPI version](https://img.shields.io/pypi/v/agent-stream?color=blue&style=flat-square)](https://pypi.org/project/agent-stream/) [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)](https://python.org) [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE) [![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=flat-square)](#)
 
 ---
 
-## The Problem
+## Overview
 
-Without streaming, the user waits for the entire response before seeing anything — perceived latency is total latency. Streaming reduces time-to-first-token and enables real-time pipelines that buffer-and-batch cannot match.
+`agent-stream` implements **streaming response handling for llm agents — sse parser, chunk accumulation, streamprocessor with filter/map/take. zero dependencies.**
+
+Inspired by the Vedic principle of *प्रवाह* (Pravah), this library brings the ancient wisdom of structured discipline to modern LLM agent engineering.
+
+No external dependencies. Pure Python 3.8+. Drop it in anywhere.
 
 ## Installation
 
@@ -20,100 +34,67 @@ Without streaming, the user waits for the entire response before seeing anything
 pip install agent-stream
 ```
 
+Or clone directly:
+```bash
+git clone https://github.com/darshjme/agent-stream.git
+cd agent-stream
+pip install -e .
+```
+
 ## Quick Start
 
 ```python
-from agent_stream import ChunkBuffer, StreamCollector, StreamProcessor
+from stream import *
 
-# Initialise
-instance = ChunkBuffer(name="my_agent")
-
-# Use
-# see API reference below
-print(result)
+# Initialize
+# See examples/ for full usage patterns
 ```
 
-## API Reference
+## Why `agent-stream`?
 
-### `ChunkBuffer`
+Production LLM systems fail in predictable ways. `agent-stream` solves the **stream** failure mode with:
 
-```python
-class ChunkBuffer:
-    """A fixed-capacity text buffer for streaming chunks.
-    def __init__(self, max_size: int = 10_000) -> None:
-    def write(self, chunk: str) -> None:
-        """Append *chunk* to the buffer.
-    def read(self, n: int = -1) -> str:
-        """Consume and return up to *n* characters (or all if n == -1)."""
+- **Zero dependencies** — no version conflicts, no bloat
+- **Battle-tested patterns** — extracted from real production systems
+- **Type-safe** — full type hints, mypy-compatible
+- **Minimal surface area** — one job, done well
+- **Composable** — works with any LLM framework (LangChain, LlamaIndex, raw OpenAI, etc.)
+
+## The Vedic Arsenal
+
+`agent-stream` is part of **[darshjme/arsenal](https://github.com/darshjme/arsenal)** — a collection of 100 focused Python libraries for LLM agent infrastructure.
+
+Each library solves exactly one problem. Together they form a complete stack.
+
+```
+pip install agent-stream  # this library
+# Browse all 100: https://github.com/darshjme/arsenal
 ```
 
-### `StreamCollector`
+## Contributing
 
-```python
-class StreamCollector:
-    """Accumulates text chunks from a streaming source.
-    def __init__(
-    def feed(self, chunk: str | bytes) -> None:
-        """Process one chunk, appending it to the internal buffer.
-    def collect(self, stream: Iterable[str | bytes]) -> str:
-        """Drain *stream*, accumulate all chunks, return full text.
-    def reset(self) -> None:
-        """Clear accumulated state so the collector can be reused."""
-```
+Found a bug? Have an improvement?
 
-### `StreamProcessor`
+1. Fork the repo
+2. Create a feature branch (`git checkout -b fix/your-fix`)
+3. Add tests
+4. Open a PR
 
-```python
-class StreamProcessor:
-    """Lazy, fluent stream processing pipeline.
-    def __init__(self, stream: Iterable) -> None:
-    def filter(self, predicate: Callable[[object], bool]) -> "StreamProcessor":
-        """Keep only chunks for which *predicate* returns truthy."""
-    def map(self, transform: Callable[[object], object]) -> "StreamProcessor":
-        """Apply *transform* to every chunk."""
-    def take(self, n: int) -> "StreamProcessor":
-        """Keep only the first *n* chunks."""
-```
+All contributions welcome. Keep it zero-dependency.
 
+## License
 
-## How It Works
-
-### Flow
-
-```mermaid
-flowchart LR
-    A[User Code] -->|create| B[ChunkBuffer]
-    B -->|configure| C[StreamCollector]
-    C -->|execute| D{Success?}
-    D -->|yes| E[Return Result]
-    D -->|no| F[Error Handler]
-    F --> G[Fallback / Retry]
-    G --> C
-```
-
-### Sequence
-
-```mermaid
-sequenceDiagram
-    participant App
-    participant ChunkBuffer
-    participant StreamCollector
-
-    App->>+ChunkBuffer: initialise()
-    ChunkBuffer->>+StreamCollector: configure()
-    StreamCollector-->>-ChunkBuffer: ready
-    App->>+ChunkBuffer: run(context)
-    ChunkBuffer->>+StreamCollector: execute(context)
-    StreamCollector-->>-ChunkBuffer: result
-    ChunkBuffer-->>-App: WorkflowResult
-```
-
-## Philosophy
-
-> *Sarasvatī* — the river goddess — flows without accumulation; a true stream processes and releases.
+MIT — use freely, build freely.
 
 ---
 
-*Part of the [arsenal](https://github.com/darshjme/arsenal) — production stack for LLM agents.*
+<div align="center">
 
-*Built by [Darshankumar Joshi](https://github.com/darshjme), Gujarat, India.*
+**Built with ⚡ by [Darshankumar Joshi](https://github.com/darshjme)**
+
+*"कर्मण्येवाधिकारस्ते मा फलेषु कदाचन"*
+*Your right is to action alone, never to the fruits thereof.*
+
+[Arsenal](https://github.com/darshjme/arsenal) · [GitHub](https://github.com/darshjme) · [Twitter](https://twitter.com/thedarshanjoshi)
+
+</div>
